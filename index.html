@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Texto Markoviano</title>
+    
+    <style>
+        /* CSS Geral e Layout */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #ffffff;
+            margin: 0;
+            display: flex;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .sidebar {
+            width: 250px;
+            padding-right: 20px;
+            border-right: 1px solid #ddd;
+            flex-shrink: 0;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding-left: 20px;
+        }
+
+        /* Estilos específicos do App */
+        .main-header {
+            text-align: center;
+            padding: 2rem 0;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-box {
+            background-color: #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .example-words {
+            background: #f0f2f6;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .generated-text {
+            background: #f8f9fa !important;
+            color: #2c3e50 !important;
+            padding: 1.5rem;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            font-family: Georgia, serif;
+            line-height: 1.8;
+            margin: 1rem 0;
+            font-size: 1.1rem;
+            width: 100%;
+            box-sizing: border-box;
+            resize: vertical;
+            height: 200px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        .input-group > div {
+            flex-grow: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: .5rem;
+            font-weight: bold;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-example {
+            background-color: #f0f2f6;
+            border: 1px solid #ccc;
+        }
+
+        .btn-primary {
+            background-color: #667eea;
+            color: white;
+            width: 100%;
+            font-size: 1rem;
+        }
+        .btn-primary:hover {
+            background-color: #5a6fd8;
+        }
+
+        .error-message {
+            color: #d9534f;
+            background-color: #f2dede;
+            padding: 1rem;
+            border-radius: 10px;
+            border-left: 4px solid #d9534f;
+            margin-top: 1rem;
+        }
+
+        details {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 2rem;
+        }
+        summary {
+            font-weight: bold;
+            padding: 1rem;
+            cursor: pointer;
+        }
+        .details-content {
+            padding: 0 1rem 1rem 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <h2>📊 Informações do Modelo</h2>
+            <div id="model-info" class="info-box">
+                </div>
+            <h2>💡 Palavras Disponíveis</h2>
+            <div id="words-info" class="info-box">
+                </div>
+        </aside>
+
+        <main class="main-content">
+            <h1 class="main-header">Gerador de Texto Markoviano</h1>
+            <p class="subtitle">Demonstração de Cadeia de Markov para Geração de Texto Artificial<br>Baseado em "Alice no País das Maravilhas"</p>
+            
+            <h3>🔤 Experimente estas palavras:</h3>
+            <div class="example-words">
+                <button class="btn-example" data-word="alice"><strong>alice</strong></button>
+                <button class="btn-example" data-word="coelho"><strong>coelho</strong></button>
+                <button class="btn-example" data-word="rainha"><strong>rainha</strong></button>
+                <button class="btn-example" data-word="gato"><strong>gato</strong></button>
+                <button class="btn-example" data-word="chapeleiro"><strong>chapeleiro</strong></button>
+            </div>
+
+            <div class="input-group">
+                <div>
+                    <label for="start-word">🎯 Palavra inicial:</label>
+                    <input type="text" id="start-word" placeholder="Digite uma palavra (ex: alice, coelho, rainha...)">
+                </div>
+                <div>
+                    <label for="length">📏 Comprimento:</label>
+                    <input type="number" id="length" min="10" max="200" value="46">
+                </div>
+            </div>
+            
+            <button id="generate-btn" class="btn-primary">🎲 Gerar Texto</button>
+            
+            <div id="output-area">
+                </div>
+
+            <details>
+                <summary>Como funciona o Algoritmo Markov</summary>
+                <div class="details-content">
+                    <h3>🔍 <strong>Cadeia de Markov de Ordem 2 (Trigramas)</strong></h3>
+                    <ol>
+                        <li><strong>Processamento do texto:</strong>
+                           <ul>
+                               <li>O texto é dividido em palavras.</li>
+                               <li>Cada sequência de 3 palavras consecutivas forma um "trigrama".</li>
+                               <li>Exemplo: "Alice estava muito" → ("Alice", "estava") → "muito".</li>
+                           </ul>
+                        </li>
+                        <li><strong>Construção do modelo:</strong>
+                           <ul>
+                               <li>Para cada par de palavras, guardamos quais palavras podem vir a seguir.</li>
+                               <li>Exemplo: após ("Alice", "estava") podem vir ["muito", "pensando", "curiosa"...].</li>
+                           </ul>
+                        </li>
+                        <li><strong>Geração do texto:</strong>
+                           <ul>
+                               <li>Começamos com a palavra escolhida.</li>
+                               <li>Encontramos um par compatível.</li>
+                               <li>Escolhemos aleatoriamente a próxima palavra baseada no modelo.</li>
+                               <li>Repetimos o processo até atingir o comprimento desejado.</li>
+                           </ul>
+                        </li>
+                    </ol>
+                    <h3><strong>Vantagens:</strong></h3>
+                    <ul>
+                        <li>Preserva padrões linguísticos do texto original.</li>
+                        <li>Gera texto que "soa" como o autor original.</li>
+                        <li>Simples de implementar e entender.</li>
+                    </ul>
+                    <h3><strong>Limitações:</strong></h3>
+                    <ul>
+                        <li>Não entende significado, apenas padrões.</li>
+                        <li>Pode gerar frases sem sentido.</li>
+                        <li>Limitado ao vocabulário do texto original.</li>
+                    </ul>
+                </div>
+            </details>
+        </main>
+    </div>
+
+    <script src="js/markov_logic.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Elementos da UI
+            const startWordInput = document.getElementById('start-word');
+            const lengthInput = document.getElementById('length');
+            const generateBtn = document.getElementById('generate-btn');
+            const outputArea = document.getElementById('output-area');
+            const modelInfo = document.getElementById('model-info');
+            const wordsInfo = document.getElementById('words-info');
+            const exampleButtons = document.querySelectorAll('.btn-example');
+
+            // Função para exibir o texto gerado
+            function displayResult(text) {
+                outputArea.innerHTML = `
+                    <h3>📝 Texto Gerado:</h3>
+                    <textarea class="generated-text" readonly>${text}</textarea>
+                `;
+            }
+
+            // Função para exibir erros
+            function displayError(message) {
+                 outputArea.innerHTML = `<div class="error-message">${message}</div>`;
+            }
+
+            // Função principal de geração
+            function handleGeneration() {
+                const startWord = startWordInput.value;
+                const length = parseInt(lengthInput.value, 10);
+
+                if (!startWord) {
+                    displayError('⚠️ Por favor, digite uma palavra inicial!');
+                    return;
+                }
+
+                try {
+                    outputArea.innerHTML = `<div class="info-box">🔄 Gerando texto...</div>`;
+                    const generatedText = generateMarkovText(startWord, length);
+                    displayResult(generatedText);
+                } catch (e) {
+                    displayError(`❌ ${e.message}`);
+                }
+            }
+
+            // Event Listeners
+            generateBtn.addEventListener('click', handleGeneration);
+            startWordInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    handleGeneration();
+                }
+            });
+
+            exampleButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    startWordInput.value = button.dataset.word;
+                    handleGeneration();
+                });
+            });
+
+            // Preencher informações do modelo
+            function populateModelInfo() {
+                const totalTrigrams = Object.keys(MARKOV_MODEL).length;
+                const availableWords = getAvailableStartWords();
+
+                modelInfo.innerHTML = `
+                    <p><strong>Trigramas únicos:</strong> ${totalTrigrams.toLocaleString()}</p>
+                    <p><strong>Ordem do modelo:</strong> 2 (trigrama)</p>
+                    <p><strong>Base:</strong> Alice no País das Maravilhas</p>
+                `;
+
+                wordsInfo.innerHTML = `<p>O modelo contém <strong>${availableWords.length}</strong> palavras iniciais diferentes.</p>`;
+            }
+
+            populateModelInfo();
+        });
+    </script>
+</body>
+</html>
