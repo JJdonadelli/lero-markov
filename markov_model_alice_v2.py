@@ -100,7 +100,7 @@ def load_and_process_text(file_path="data/acile.txt"):
         return None, 0
 
 # Função para gerar texto (adaptada do seu código original)
-def generate_text(model, start_words, length=10):
+def generate_text(model, start_words, length=46):
     """Gera texto usando o modelo Markov"""
     try:
         # Se o usuário passar apenas uma palavra, escolher uma segunda compatível
@@ -193,7 +193,7 @@ def main():
             "📏 Comprimento:",
             min_value=10,
             max_value=200,
-            value=10,
+            value=46,
             help="Número de palavras a gerar"
         )
     
