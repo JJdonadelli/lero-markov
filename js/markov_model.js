@@ -1,4 +1,5 @@
-{
+const ORDER=4;
+const MARKOV_MODEL={
   "dentro|da|toca|do": [
     "coelho"
   ],
@@ -118323,4 +118324,16 @@
   "pulmões|eles|começaram|de": [
     "novo"
   ]
-}
+};
+function generateMarkovText(startWords,length=50){
+  let s=startWords.toLowerCase().trim().split(' ');
+  if(s.length<ORDER) throw `Informe pelo menos ${ORDER} palavras iniciais.`;
+  let r=s.slice(0,ORDER);
+  for(let i=ORDER;i<length;i++){
+    let key=r.slice(i-ORDER,i).join('|'),nxt=MARKOV_MODEL[key];
+    if(!nxt?.length) break;
+    let w=nxt[Math.floor(Math.random()*nxt.length)];
+    r.push(w);
+  }
+return r.join(' ')}
+function getAvailableStartKeys(){return Object.keys(MARKOV_MODEL)}

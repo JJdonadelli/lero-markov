@@ -1,278 +1,231 @@
 import streamlit as st
-import re
 import random
-from collections import defaultdict
+import sys
+from collections import defaultdict, Counter
 import os
 
 # Configuração da página
 st.set_page_config(
-    page_title="Gerador de Texto Markoviano",
-    page_icon="🎭",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Gerador de Texto com N-Gramas",
+    page_icon="📝",
+    layout="wide"
 )
 
-# CSS customizado para deixar mais bonito
-st.markdown("""
-<style>
-    .main-header {
-        text-align: center;
-        padding: 2rem 0;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 3rem;
-        font-weight: bold;
-        margin-bottom: 1rem;
-    }
-    
-    .subtitle {
-        text-align: center;
-        color: #666;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-    }
-    
-    .stAlert > div {
-        padding: 1rem;
-        border-radius: 10px;
-    }
-    
-    .example-words {
-        background: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-    }
-    
-    .generated-text {
-        background: #f8f9fa !important;
-        color: #2c3e50 !important;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 4px solid #667eea;
-        font-family: Georgia, serif;
-        line-height: 1.8;
-        margin: 1rem 0;
-        font-size: 1.1rem;
-    }
-    
-    /* Garantir que o texto seja sempre visível */
-    .generated-text * {
-        color: #2c3e50 !important;
-    }
-    
-    /* Melhorar contraste em modo escuro */
-    [data-theme="dark"] .generated-text {
-        background: #1e1e1e !important;
-        color: #e0e0e0 !important;
-        border-left-color: #667eea;
-    }
-    
-    [data-theme="dark"] .generated-text * {
-        color: #e0e0e0 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.title("📝 Gerador de Texto com Modelos N-Gramas")
+st.markdown("---")
 
-# Função para carregar e processar o texto
+# Funções principais (adaptadas do código original)
 @st.cache_data
-def load_and_process_text(file_path="data/acile.txt"):
-    """Carrega o arquivo de texto e constrói o modelo Markov"""
-
-    
+def load_texts():
+    """Carrega os textos dos arquivos"""
     try:
-        with open(file_path, encoding="utf-8") as f:
-            text = f.read().lower()
-        
-        # Quebrar em palavras
-        words = re.findall(r"\b\w+\b", text)
-        
-        # Construir modelo de trigramas
-        markov_model = defaultdict(list)
-        for w1, w2, w3 in zip(words, words[1:], words[2:]):
-            markov_model[(w1, w2)].append(w3)
-        
-        return markov_model, len(words)
-    
-    except Exception as e:
-        st.error(f"Erro ao carregar arquivo: {e}")
-        return None, 0
+        text1 = open("data/maravilha_limpo.txt", encoding="utf-8").read().lower()
+        text2 = open("data/espelho_limpo.txt", encoding="utf-8").read().lower()
+        return (text1 + " " + text2).split()
+    except FileNotFoundError:
+        return None
 
-# Função para gerar texto (adaptada do seu código original)
-def generate_text(model, start_words, length=46):
-    """Gera texto usando o modelo Markov"""
-    try:
-        # Se o usuário passar apenas uma palavra, escolher uma segunda compatível
-        if isinstance(start_words, str):
-            candidates = [pair for pair in model.keys() if pair[0] == start_words]
-            if not candidates:
-                return None, f"❌ Não encontrei pares começando com '{start_words}' no texto."
-            w1, w2 = random.choice(candidates)
-        else:
-            w1, w2 = start_words
+def build_ngram_model(words, n=3):
+    """Constrói modelo de n-gramas"""
+    if n < 2:
+        raise ValueError("n deve ser >= 2")
+    model = defaultdict(list)
+    for i in range(len(words) - n + 1):
+        context = tuple(words[i:i + n - 1])  # n-1 palavras
+        next_word = words[i + n - 1]         # palavra seguinte
+        model[context].append(next_word)
+    return model
 
-        output = [w1, w2]
-        for _ in range(length - 2):
-            if (w1, w2) not in model:
-                break
-            w3 = random.choice(model[(w1, w2)])
-            output.append(w3)
-            w1, w2 = w2, w3
-        
-        return " ".join(output), None
+def generate_text(model, start_words, length=50):
+    """Gera texto usando o modelo de n-gramas"""
+    context_size = len(next(iter(model)))
+    if len(start_words) != context_size:
+        raise ValueError(f"O modelo espera {context_size} palavras no contexto.")
     
-    except Exception as e:
-        return None, f"❌ Erro ao gerar texto: {e}"
+    output = list(start_words)
+
+    for _ in range(length - context_size):
+        current_context = tuple(output[-context_size:])
+        if current_context not in model:
+            break
+
+        next_words = model[current_context]
+        counts = Counter(next_words)
+        palavras = list(counts.keys())
+        pesos = list(counts.values())
+
+        next_word = random.choices(palavras, weights=pesos, k=1)[0]
+        output.append(next_word)
+
+    return " ".join(output)
+
+def get_random_start_words(words, context_size):
+    """Escolhe uma sequência aleatória de palavras iniciais"""
+    start_index = random.randint(0, len(words) - context_size)
+    return tuple(words[start_index:start_index + context_size])
 
 # Interface principal
-def main():
-    # Cabeçalho
-    st.markdown('<h1 class="main-header"> Gerador de Texto Markoviano</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">Demonstração de Cadeia de Markov para Geração de Texto Artificial<br>Baseado em "Alice no País das Maravilhas"</p>', unsafe_allow_html=True)
+col1, col2 = st.columns([1, 2])
+
+with col1:
+    st.header("⚙️ Configurações")
     
-    # Carregar o modelo
-    with st.spinner("🔄 Carregando modelo Markov..."):
-        markov_model, total_words = load_and_process_text()
+    # Carregar textos
+    words = load_texts()
     
-    if markov_model is None:
-        st.error("❌ Não foi possível carregar o modelo.")
-        return
+    if words is None:
+        st.error("❌ Arquivos de texto não encontrados!")
+        st.info("Certifique-se de que os arquivos estão em:")
+        st.code("data/maravilha_limpo.txt\ndata/espelho_limpo.txt")
+        
+        # Opção para usar texto de exemplo
+        if st.checkbox("Usar texto de exemplo"):
+            sample_text = """era uma vez uma princesa muito bonita que vivia em um castelo encantado 
+            no reino distante havia dragões e cavaleiros corajosos que protegiam a terra sagrada 
+            os habitantes da vila eram felizes e trabalhavam nos campos verdes sob o sol dourado"""
+            words = sample_text.lower().split()
+            st.success("✅ Usando texto de exemplo!")
+    else:
+        st.success(f"✅ Textos carregados! ({len(words)} palavras)")
     
-    # Informações sobre o modelo na sidebar
-    st.sidebar.markdown("## 📊 Informações do Modelo")
-    st.sidebar.info(f"""
-    **Total de palavras:** {total_words:,}
-    
-    **Trigramas únicos:** {len(markov_model):,}
-    
-    **Ordem do modelo:** 2 (trigrama)
-    
-    **Arquivo base:** acile.txt
-    """)
-    
-    # Palavras disponíveis no modelo
-    available_words = list(set([pair[0] for pair in markov_model.keys()]))
-    popular_words = sorted(available_words)[:20]  # Primeiras 20 em ordem alfabética
-    
-    st.sidebar.markdown("## 💡 Palavras Disponíveis")
-    st.sidebar.info(f"O modelo contém **{len(available_words)}** palavras iniciais diferentes.")
-    
-    # Inicializar session_state
-    if 'selected_word' not in st.session_state:
-        st.session_state.selected_word = ""
-    
-    # Exemplos de palavras - ANTES do input para funcionar
-    st.markdown("### 🔤 Experimente estas palavras:")
-    example_words = ['alice', 'coelho', 'rainha', 'gato', 'chapeleiro']
-    
-    cols = st.columns(len(example_words))
-    for i, word in enumerate(example_words):
-        if cols[i].button(f"**{word}**", key=f"btn_{word}"):
-            st.session_state.selected_word = word
-            st.rerun()
-    
-    # Área principal de entrada
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        start_word = st.text_input(
-            "🎯 Palavra inicial:",
-            value=st.session_state.selected_word,
-            placeholder="Digite uma palavra (ex: alice, coelho, rainha...)",
-            help="Digite uma palavra que aparece no texto de Alice",
-            key="word_input"
+    if words:
+        # Parâmetros
+        n = st.slider("Ordem do N-Grama (n)", min_value=2, max_value=6, value=4, 
+                     help="Número de palavras consideradas no contexto + 1")
+        
+        length = st.slider("Comprimento do texto", min_value=10, max_value=200, value=53,
+                          help="Número de palavras a serem geradas")
+        
+        # Opções para palavras iniciais
+        st.subheader("Palavras Iniciais")
+        init_option = st.radio(
+            "Como escolher:",
+            ["Aleatório", "Manual"],
+            help="Escolha como definir as palavras que iniciarão o texto"
         )
         
-        # Sincronizar com session_state
-        if start_word != st.session_state.selected_word:
-            st.session_state.selected_word = start_word
-    
-    with col2:
-        length = st.number_input(
-            "📏 Comprimento:",
-            min_value=10,
-            max_value=200,
-            value=46,
-            help="Número de palavras a gerar"
-        )
-    
-    # Botão de geração
-    if st.button("🎲 Gerar Texto", type="primary", use_container_width=True):
-        if not start_word:
-            st.warning("⚠️ Por favor, digite uma palavra inicial!")
-        else:
-            with st.spinner("🔄 Gerando texto..."):
-                generated_text, error = generate_text(markov_model, start_word.lower().strip(), length)
+        context_size = n - 1
+        
+        if init_option == "Manual":
+            manual_words = st.text_input(
+                f"Digite {context_size} palavra(s) inicial(is):",
+                placeholder=f"Exemplo: era uma vez" if context_size == 3 else "palavra1 palavra2...",
+                help=f"Insira exatamente {context_size} palavra(s) separada(s) por espaço"
+            )
+        
+        # Botão para gerar
+        if st.button("🎲 Gerar Texto", type="primary"):
+            try:
+                # Construir modelo
+                with st.spinner("Construindo modelo..."):
+                    model = build_ngram_model(words, n=n)
                 
-                if error:
-                    st.error(error)
-                    
-                    # Sugerir palavras similares
-                    similar_words = [word for word in available_words if start_word.lower() in word][:10]
-                    if similar_words:
-                        st.info(f"💡 Palavras similares disponíveis: {', '.join(similar_words)}")
+                # Definir palavras iniciais
+                if init_option == "Aleatório":
+                    start_words = get_random_start_words(words, context_size)
                 else:
-                    st.markdown("### 📝 Texto Gerado:")
-                    # Usar st.text_area para garantir legibilidade
-                    st.text_area(
-                        label="",
-                        value=generated_text,
-                        height=200,
-                        disabled=True,
-                        label_visibility="collapsed"
-                    )
-                    
-                    # Opções adicionais
-                    # col1, col2, col3 = st.columns(3)
-                    # col1, col2 = st.columns(2)
+                    if manual_words:
+                        manual_list = manual_words.lower().split()
+                        if len(manual_list) != context_size:
+                            st.error(f"❌ Insira exatamente {context_size} palavra(s)!")
+                            st.stop()
+                        start_words = tuple(manual_list)
+                    else:
+                        st.error("❌ Digite as palavras iniciais!")
+                        st.stop()
+                
+                # Gerar texto
+                with st.spinner("Gerando texto..."):
+                    generated = generate_text(model, start_words, length)
+                
+                # Armazenar no session state
+                st.session_state.generated_text = generated
+                st.session_state.start_words = start_words
+                st.session_state.model_params = {"n": n, "length": length}
+                
+            except Exception as e:
+                st.error(f"❌ Erro: {str(e)}")
 
-                    # with st.columns(1):
-                    if st.button("🔄 Gerar Novamente"):
-                            st.rerun()
-                    
-                    # with col2:
-                        # st.download_button(
-                        #     "💾 Baixar Texto",
-                        #     data=generated_text,
-                        #     file_name=f"texto_markov_{start_word}.txt",
-                        #     mime="text/plain"
-                        # )
-                    
-                    # with col3: 
-                        # if st.button("📋 Copiar"):
-                            # st.info("Use Ctrl+C para copiar o texto acima!")
+with col2:
+    st.header("📖 Texto Gerado")
+    
+    # Mostrar resultado
+    if hasattr(st.session_state, 'generated_text'):
+        # Informações do modelo
+        with st.expander("ℹ️ Informações da Geração"):
+            col_info1, col_info2, col_info3 = st.columns(3)
+            with col_info1:
+                st.metric("Ordem N-Grama", st.session_state.model_params["n"])
+            with col_info2:
+                st.metric("Comprimento", st.session_state.model_params["length"])
+            with col_info3:
+                st.metric("Contexto Inicial", f"{len(st.session_state.start_words)} palavras")
+            
+            st.write("**Palavras iniciais:**", " ".join(st.session_state.start_words))
+        
+        # Texto gerado
+        st.subheader("Resultado:")
+        
+        # Destacar palavras iniciais
+        text_parts = st.session_state.generated_text.split()
+        initial_part = " ".join(text_parts[:len(st.session_state.start_words)])
+        remaining_part = " ".join(text_parts[len(st.session_state.start_words):])
+        
+        st.markdown(f"**{initial_part}** {remaining_part}")
+        
+        # Opções de exportação
+        col_exp1, col_exp2 = st.columns(2)
+        with col_exp1:
+            st.download_button(
+                "💾 Baixar como TXT",
+                st.session_state.generated_text,
+                file_name="texto_gerado.txt",
+                mime="text/plain"
+            )
+        with col_exp2:
+            if st.button("📋 Copiar para Área de Transferência"):
+                st.write("Texto copiado!")
+                
+    else:
+        st.info("👈 Configure os parâmetros à esquerda e clique em 'Gerar Texto' para começar!")
 
-    # Explicação do algoritmo na parte inferior
-    with st.expander("Como funciona o Algoritmo Markov"):
-        st.markdown("""
-        ### 🔍 **Cadeia de Markov de Ordem 2 (Trigramas)**
+# Sidebar com informações
+with st.sidebar:
+    st.header("📊 Estatísticas")
+    
+    if words:
+        st.metric("Total de Palavras", f"{len(words):,}")
+        st.metric("Palavras Únicas", f"{len(set(words)):,}")
         
-        1. **Processamento do texto:**
-           - O texto é dividido em palavras
-           - Cada sequência de 3 palavras consecutivas forma um "trigrama"
-           - Exemplo: "Alice estava muito" → ("Alice", "estava") → "muito"
-        
-        2. **Construção do modelo:**
-           - Para cada par de palavras, guardamos quais palavras podem vir a seguir
-           - Exemplo: após ("Alice", "estava") podem vir ["muito", "pensando", "curiosa"...]
-        
-        3. **Geração do texto:**
-           - Começamos com a palavra escolhida
-           - Encontramos um par compatível 
-           - Escolhemos aleatoriamente a próxima palavra baseada no modelo
-           - Repetimos o processo até atingir o comprimento desejado
-        
-        ### **Vantagens:**
-        - Preserva padrões linguísticos do texto original
-        - Gera texto que "soa" como o autor original
-        - Simples de implementar e entender
-        
-        ### **Limitações:**
-        - Não entende significado, apenas padrões
-        - Pode gerar frases sem sentido
-        - Limitado ao vocabulário do texto original
-        """)
+        # Palavras mais comuns
+        with st.expander("🔤 Palavras Mais Comuns"):
+            word_counts = Counter(words)
+            top_words = word_counts.most_common(10)
+            for word, count in top_words:
+                st.write(f"**{word}**: {count}")
+    
+    st.markdown("---")
+    st.header("ℹ️ Como Funciona")
+    st.markdown("""
+    **N-Gramas** são sequências de N palavras consecutivas. Este gerador:
+    
+    1. **Analisa** os textos de entrada
+    2. **Constrói** um modelo estatístico baseado em sequências
+    3. **Gera** novo texto seguindo os padrões encontrados
+    
+    **Parâmetros:**
+    - **N=2**: Bigramas (contexto de 1 palavra)
+    - **N=3**: Trigramas (contexto de 2 palavras)  
+    - **N=4**: 4-gramas (contexto de 3 palavras)
+    
+    Valores maiores de N produzem texto mais coerente mas menos criativo.
+    """)
 
-if __name__ == "__main__":
-    main()
+# Footer
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: gray;'>"
+    "🤖 Gerador de Texto com Cadeias de Markov | Baseado em N-Gramas"
+    "</div>", 
+    unsafe_allow_html=True
+)
