@@ -3,320 +3,767 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Texto Markoviano</title>
-    
+    <title>Gerador de Texto - N-gramas de Markov - Alice</title>
     <style>
-        /* CSS Geral e Layout */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #ffffff;
+        * {
             margin: 0;
-            display: flex;
-        }
-        .container {
-            display: flex;
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .sidebar {
-            width: 250px;
-            padding-right: 20px;
-            border-right: 1px solid #ddd;
-            flex-shrink: 0;
-        }
-        .main-content {
-            flex-grow: 1;
-            padding-left: 20px;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        /* Estilos específicos do App */
-        .main-header {
-            text-align: center;
-            padding: 2rem 0;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 2.5rem;
-            font-weight: bold;
-            margin-bottom: 1rem;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
         }
-        
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
         .subtitle {
             text-align: center;
             color: #666;
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
+            font-style: italic;
+            margin-bottom: 30px;
+            font-size: 1.1em;
         }
 
-        .info-box {
-            background-color: #e9ecef;
+        .file-status {
+            background: #e6fffa;
+            border-left: 4px solid #38b2ac;
+            padding: 15px;
             border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-        
-        .example-words {
-            background: #f0f2f6;
-            padding: 1rem;
-            border-radius: 10px;
-            margin: 1rem 0;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
+            margin-bottom: 20px;
         }
 
-        .generated-text {
-            background: #f8f9fa !important;
-            color: #2c3e50 !important;
-            padding: 1.5rem;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
-            font-family: Georgia, serif;
-            line-height: 1.8;
-            margin: 1rem 0;
-            font-size: 1.1rem;
-            width: 100%;
-            box-sizing: border-box;
-            resize: vertical;
-            height: 200px;
-        }
-        
-        .input-group {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-end;
-            margin-bottom: 1rem;
+        .file-status.loading {
+            background: #fef5e7;
+            border-left-color: #ed8936;
         }
 
-        .input-group > div {
-            flex-grow: 1;
+        .file-status.error {
+            background: #fed7d7;
+            border-left-color: #e53e3e;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         label {
-            display: block;
-            margin-bottom: .5rem;
-            font-weight: bold;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 0.9em;
         }
 
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        
-        button {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
+        input, select {
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
         }
 
-        .btn-example {
-            background-color: #f0f2f6;
-            border: 1px solid #ccc;
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        .btn-primary {
-            background-color: #667eea;
-            color: white;
-            width: 100%;
-            font-size: 1rem;
-        }
-        .btn-primary:hover {
-            background-color: #5a6fd8;
-        }
-
-        .error-message {
-            color: #d9534f;
-            background-color: #f2dede;
-            padding: 1rem;
+        .word-selection {
+            margin: 20px 0;
+            padding: 20px;
+            background: #edf2f7;
             border-radius: 10px;
-            border-left: 4px solid #d9534f;
-            margin-top: 1rem;
+            border: 2px dashed #cbd5e0;
+            display: none;
         }
 
-        details {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-top: 2rem;
+        .word-selection h3 {
+            margin-bottom: 15px;
+            color: #2d3748;
         }
-        summary {
-            font-weight: bold;
-            padding: 1rem;
+
+        .word-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .word-button {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            padding: 8px 16px;
             cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
         }
-        .details-content {
-            padding: 0 1rem 1rem 1rem;
+
+        .word-button:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .word-button.selected {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .alice-words {
+            background: rgba(102, 126, 234, 0.1);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+        }
+
+        .frequent-words {
+            background: rgba(118, 75, 162, 0.1);
+            border: 2px solid rgba(118, 75, 162, 0.3);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            margin: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .button-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .result-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f7fafc;
+            border-radius: 15px;
+            border: 2px solid #e2e8f0;
+            min-height: 200px;
+            display: none;
+        }
+
+        .result-section h3 {
+            margin-bottom: 15px;
+            color: #2d3748;
+        }
+
+        .generated-text {
+            font-family: 'Georgia', serif;
+            font-size: 16px;
+            line-height: 1.8;
+            color: #2d3748;
+            margin-top: 15px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .stats {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e6fffa;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #234e52;
+            border-left: 4px solid #38b2ac;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #e53e3e;
+            margin: 15px 0;
+        }
+
+        .success {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #38a169;
+            margin: 15px 0;
+        }
+
+        .text-preview {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .text-preview h4 {
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .text-preview-content {
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: #666;
+            max-height: 100px;
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .word-category {
+            display: inline-block;
+            background: #4a5568;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin: 2px;
+        }
+
+        .word-category.alice { background: #667eea; }
+        .word-category.frequent { background: #764ba2; }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .word-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <aside class="sidebar">
-            <h2>📊 Informações do Modelo</h2>
-            <div id="model-info" class="info-box">
-                </div>
-            <h2>💡 Palavras Disponíveis</h2>
-            <div id="words-info" class="info-box">
-                </div>
-        </aside>
+        <h1>🎩 Gerador de Texto com N-gramas de Markov</h1>
+        <p class="subtitle">Baseado nos livros "Alice no País das Maravilhas" e "Alice Através do Espelho"</p>
 
-        <main class="main-content">
-            <h1 class="main-header">Gerador de Texto Markoviano</h1>
-            <p class="subtitle">Demonstração de Cadeia de Markov para Geração de Texto Artificial<br>Baseado em "Alice no País das Maravilhas"</p>
-            
-            <h3>🔤 Experimente estas palavras:</h3>
-            <div class="example-words">
-                <button class="btn-example" data-word="alice"><strong>alice</strong></button>
-                <button class="btn-example" data-word="coelho"><strong>coelho</strong></button>
-                <button class="btn-example" data-word="rainha"><strong>rainha</strong></button>
-                <button class="btn-example" data-word="gato"><strong>gato</strong></button>
-                <button class="btn-example" data-word="chapeleiro"><strong>chapeleiro</strong></button>
+        <div id="fileStatus" class="file-status loading">
+            📚 Carregando arquivos de texto...
+        </div>
+
+        <div class="text-preview" id="textPreview" style="display: none;">
+            <h4>📖 Prévia do Texto Carregado:</h4>
+            <div class="text-preview-content" id="textPreviewContent"></div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="nValue">🔢 Valor de N (2-6):</label>
+                <input type="number" id="nValue" min="2" max="6" value="3">
+                <small style="color: #666;">Complexidade do modelo</small>
             </div>
-
-            <div class="input-group">
-                <div>
-                    <label for="start-word">🎯 Palavra inicial:</label>
-                    <input type="text" id="start-word" placeholder="Digite uma palavra (ex: alice, coelho, rainha...)">
-                </div>
-                <div>
-                    <label for="length">📏 Comprimento:</label>
-                    <input type="number" id="length" min="10" max="200" value="46">
-                </div>
+            <div class="control-group">
+                <label for="textSize">📏 Tamanho do texto:</label>
+                <input type="number" id="textSize" min="10" max="200" value="51">
+                <small style="color: #666;">Número de palavras</small>
             </div>
-            
-            <button id="generate-btn" class="btn-primary">🎲 Gerar Texto</button>
-            
-            <div id="output-area">
-                </div>
+            <div class="control-group">
+                <label for="customWord">✏️ Palavra personalizada:</label>
+                <input type="text" id="customWord" placeholder="Digite uma palavra...">
+                <small style="color: #666;">Opcional: palavra inicial</small>
+            </div>
+        </div>
 
-            <details>
-                <summary>Como funciona o Algoritmo Markov</summary>
-                <div class="details-content">
-                    <h3>🔍 <strong>Cadeia de Markov de Ordem 2 (Trigramas)</strong></h3>
-                    <ol>
-                        <li><strong>Processamento do texto:</strong>
-                           <ul>
-                               <li>O texto é dividido em palavras.</li>
-                               <li>Cada sequência de 3 palavras consecutivas forma um "trigrama".</li>
-                               <li>Exemplo: "Alice estava muito" → ("Alice", "estava") → "muito".</li>
-                           </ul>
-                        </li>
-                        <li><strong>Construção do modelo:</strong>
-                           <ul>
-                               <li>Para cada par de palavras, guardamos quais palavras podem vir a seguir.</li>
-                               <li>Exemplo: após ("Alice", "estava") podem vir ["muito", "pensando", "curiosa"...].</li>
-                           </ul>
-                        </li>
-                        <li><strong>Geração do texto:</strong>
-                           <ul>
-                               <li>Começamos com a palavra escolhida.</li>
-                               <li>Encontramos um par compatível.</li>
-                               <li>Escolhemos aleatoriamente a próxima palavra baseada no modelo.</li>
-                               <li>Repetimos o processo até atingir o comprimento desejado.</li>
-                           </ul>
-                        </li>
-                    </ol>
-                    <h3><strong>Vantagens:</strong></h3>
-                    <ul>
-                        <li>Preserva padrões linguísticos do texto original.</li>
-                        <li>Gera texto que "soa" como o autor original.</li>
-                        <li>Simples de implementar e entender.</li>
-                    </ul>
-                    <h3><strong>Limitações:</strong></h3>
-                    <ul>
-                        <li>Não entende significado, apenas padrões.</li>
-                        <li>Pode gerar frases sem sentido.</li>
-                        <li>Limitado ao vocabulário do texto original.</li>
-                    </ul>
-                </div>
-            </details>
-        </main>
+        <div class="button-container">
+            <button onclick="processText()" id="processBtn" disabled>🔄 Processar Texto</button>
+        </div>
+
+        <div class="word-selection" id="wordSelection">
+            <h3>🎯 Escolha uma palavra para começar o texto:</h3>
+            <p style="margin-bottom: 15px; color: #666;">
+                <span class="word-category alice">Alice</span> Palavras temáticas dos livros da Alice &nbsp;&nbsp;
+                <span class="word-category frequent">Frequentes</span> Palavras mais comuns no texto
+            </p>
+            <div class="word-grid" id="wordGrid"></div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processando texto e gerando n-gramas...</p>
+        </div>
+
+        <div class="button-container">
+            <button onclick="generateText()" id="generateBtn" style="display: none;">✨ Gerar Texto Mágico</button>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <h3>📝 Texto Gerado:</h3>
+            <div class="generated-text" id="generatedText"></div>
+            <div class="stats" id="stats"></div>
+            <div class="button-container">
+                <button onclick="generateText()" id="regenerateBtn" style="display: none;">🎲 Gerar Novamente</button>
+            </div>
+        </div>
     </div>
 
-    <script src="js/markov_logic.js"></script>
-    
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Elementos da UI
-            const startWordInput = document.getElementById('start-word');
-            const lengthInput = document.getElementById('length');
-            const generateBtn = document.getElementById('generate-btn');
-            const outputArea = document.getElementById('output-area');
-            const modelInfo = document.getElementById('model-info');
-            const wordsInfo = document.getElementById('words-info');
-            const exampleButtons = document.querySelectorAll('.btn-example');
+        let ngramsDict = {};
+        let processedTokens = [];
+        let selectedWord = '';
+        let interestingWords = [];
+        let combinedText = '';
 
-            // Função para exibir o texto gerado
-            function displayResult(text) {
-                outputArea.innerHTML = `
-                    <h3>📝 Texto Gerado:</h3>
-                    <textarea class="generated-text" readonly>${text}</textarea>
-                `;
-            }
-
-            // Função para exibir erros
-            function displayError(message) {
-                 outputArea.innerHTML = `<div class="error-message">${message}</div>`;
-            }
-
-            // Função principal de geração
-            function handleGeneration() {
-                const startWord = startWordInput.value;
-                const length = parseInt(lengthInput.value, 10);
-
-                if (!startWord) {
-                    displayError('⚠️ Por favor, digite uma palavra inicial!');
-                    return;
-                }
-
-                try {
-                    outputArea.innerHTML = `<div class="info-box">🔄 Gerando texto...</div>`;
-                    const generatedText = generateMarkovText(startWord, length);
-                    displayResult(generatedText);
-                } catch (e) {
-                    displayError(`❌ ${e.message}`);
-                }
-            }
-
-            // Event Listeners
-            generateBtn.addEventListener('click', handleGeneration);
-            startWordInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    handleGeneration();
-                }
-            });
-
-            exampleButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    startWordInput.value = button.dataset.word;
-                    handleGeneration();
-                });
-            });
-
-            // Preencher informações do modelo
-            function populateModelInfo() {
-                const totalTrigrams = Object.keys(MARKOV_MODEL).length;
-                const availableWords = getAvailableStartWords();
-
-                modelInfo.innerHTML = `
-                    <p><strong>Trigramas únicos:</strong> ${totalTrigrams.toLocaleString()}</p>
-                    <p><strong>Ordem do modelo:</strong> 2 (trigrama)</p>
-                    <p><strong>Base:</strong> Alice no País das Maravilhas</p>
-                `;
-
-                wordsInfo.innerHTML = `<p>O modelo contém <strong>${availableWords.length}</strong> palavras iniciais diferentes.</p>`;
-            }
-
-            populateModelInfo();
+        // Carrega os arquivos automaticamente ao inicializar
+        window.addEventListener('load', function() {
+            loadTextFiles();
         });
+
+        async function loadTextFiles() {
+            const fileStatus = document.getElementById('fileStatus');
+            const processBtn = document.getElementById('processBtn');
+            
+            try {
+                fileStatus.innerHTML = '📚 Carregando "Alice no País das Maravilhas"...';
+                
+                const maravilhaResponse = await fetch('data/maravilha-limpo.txt');
+                if (!maravilhaResponse.ok) {
+                    throw new Error('Não foi possível carregar maravilha-limpo.txt');
+                }
+                const maravilhaText = await maravilhaResponse.text();
+                
+                fileStatus.innerHTML = '🔍 Carregando "Alice Através do Espelho"...';
+                
+                const espelhoResponse = await fetch('data/espelho-limpo.txt');
+                if (!espelhoResponse.ok) {
+                    throw new Error('Não foi possível carregar espelho-limpo.txt');
+                }
+                const espelhoText = await espelhoResponse.text();
+                
+                combinedText = maravilhaText + ' ' + espelhoText;
+                
+                fileStatus.className = 'file-status';
+                fileStatus.innerHTML = `
+                    ✅ <strong>Arquivos carregados com sucesso!</strong><br>
+                    📖 Alice no País das Maravilhas: ${maravilhaText.split(' ').length.toLocaleString()} palavras<br>
+                    🔍 Alice Através do Espelho: ${espelhoText.split(' ').length.toLocaleString()} palavras<br>
+                    📚 Total combinado: ${combinedText.split(' ').length.toLocaleString()} palavras
+                `;
+                
+                // Mostra prévia do texto
+                showTextPreview(combinedText);
+                
+                processBtn.disabled = false;
+                processBtn.innerHTML = '🔄 Processar Texto dos Livros da Alice';
+                
+            } catch (error) {
+                fileStatus.className = 'file-status error';
+                fileStatus.innerHTML = `
+                    ❌ <strong>Erro ao carregar arquivos:</strong><br>
+                    ${error.message}<br>
+                    <small>Certifique-se de que os arquivos estão no diretório correto.</small>
+                `;
+                
+                // Carrega texto de exemplo como fallback
+                loadFallbackText();
+            }
+        }
+
+        function loadFallbackText() {
+            combinedText = `Alice estava começando a ficar muito cansada de ficar sentada ao lado de sua irmã no banco, e de não ter nada para fazer. Uma ou duas vezes ela havia espiado no livro que sua irmã estava lendo, mas não havia figuras ou conversas nele. E de que serve um livro, pensou Alice, sem figuras ou conversas?
+
+Então ela estava considerando em sua própria mente, bem como podia, pois o dia quente a deixava muito sonolenta e estúpida, se o prazer de fazer uma guirlanda de margaridas valeria o problema de se levantar e colher as margaridas, quando de repente um Coelho Branco de olhos cor-de-rosa passou correndo por perto.
+
+Não havia nada muito notável nisso; nem Alice achou muito fora do comum ouvir o Coelho dizer para si mesmo "Oh querido! Oh querido! Eu vou me atrasar!" Mas quando o Coelho realmente tirou um relógio do bolso do colete, olhou para ele e então se apressou, Alice se levantou de um salto, pois passou por sua mente que ela nunca havia visto antes um coelho com bolso de colete, ou um relógio para tirar dele.
+
+Ardendo de curiosidade, ela correu através do campo atrás dele, e felizmente chegou a tempo de vê-lo pular para baixo de uma grande toca de coelho sob a cerca. No momento seguinte, Alice desceu atrás dele, nunca considerando como no mundo ela sairia novamente.
+
+O túnel do coelho seguia em linha reta como um túnel por algum tempo, e então mergulhava de repente, tão de repente que Alice não teve um momento para pensar em parar antes de se encontrar caindo pelo que parecia ser um poço muito profundo.`;
+            
+            const fileStatus = document.getElementById('fileStatus');
+            const processBtn = document.getElementById('processBtn');
+            
+            fileStatus.className = 'file-status';
+            fileStatus.innerHTML = `
+                ⚠️ <strong>Usando texto de exemplo</strong><br>
+                📚 Texto de demonstração carregado com ${combinedText.split(' ').length.toLocaleString()} palavras
+            `;
+            
+            showTextPreview(combinedText);
+            processBtn.disabled = false;
+            processBtn.innerHTML = '🔄 Processar Texto de Exemplo';
+        }
+
+        function showTextPreview(text) {
+            const textPreview = document.getElementById('textPreview');
+            const textPreviewContent = document.getElementById('textPreviewContent');
+            
+            const preview = text.substring(0, 500) + (text.length > 500 ? '...' : '');
+            textPreviewContent.textContent = preview;
+            textPreview.style.display = 'block';
+        }
+
+        function preprocessText(text) {
+            // Remove quebras de linha excessivas e caracteres especiais
+            text = text.replace(/\n+/g, ' ');
+            text = text.replace(/[^\w\s\.\!\?\,\;\:\-]/g, '');
+            
+            // Converte para minúsculas
+            text = text.toLowerCase();
+            
+            // Remove espaços múltiplos
+            text = text.replace(/\s+/g, ' ');
+            
+            return text.trim();
+        }
+
+        function tokenize(text) {
+            return text.split(' ').filter(token => token.length > 0);
+        }
+
+        function createNgrams(tokens, n) {
+            const ngrams = {};
+            
+            for (let i = 0; i <= tokens.length - n; i++) {
+                const key = tokens.slice(i, i + n - 1).join(' ');
+                const nextWord = tokens[i + n - 1];
+                
+                if (!ngrams[key]) {
+                    ngrams[key] = [];
+                }
+                ngrams[key].push(nextWord);
+            }
+            
+            return ngrams;
+        }
+
+        function findInterestingWords(tokens) {
+            const aliceWords = [
+                'alice', 'coelho', 'chapeleiro', 'gato', 'rainha', 'rei', 'carta', 'cartas',
+                'chá', 'mesa', 'jardim', 'buraco', 'toca', 'relógio', 'tempo', 'mundo',
+                'país', 'maravilhas', 'espelho', 'sonho', 'dormindo', 'acordar',
+                'pequena', 'grande', 'crescer', 'diminuir', 'poção', 'beber', 'comer',
+                'porta', 'chave', 'curiosa', 'estranha', 'estranho', 'medo', 'coragem',
+                'branca', 'branco', 'vermelho', 'vermelha', 'azul', 'verde', 'cor',
+                'jogando', 'jogo', 'cartoônico', 'fantasia', 'mágico', 'mágica',
+                'casa', 'lugar', 'caminho', 'floresta', 'árvore', 'flor', 'flores'
+            ];
+            
+            // Conta frequência das palavras
+            const wordCount = {};
+            tokens.forEach(token => {
+                wordCount[token] = (wordCount[token] || 0) + 1;
+            });
+            
+            // Encontra palavras temáticas da Alice
+            const aliceWordsFound = [];
+            aliceWords.forEach(word => {
+                if (wordCount[word] && wordCount[word] > 3) {
+                    aliceWordsFound.push({ word, type: 'alice', count: wordCount[word] });
+                }
+            });
+            
+            // Adiciona palavras mais frequentes
+            const frequentWords = Object.entries(wordCount)
+                .filter(([word, freq]) => 
+                    word.length > 3 && 
+                    /^[a-záêôãç]+$/.test(word) && 
+                    freq > 10 &&
+                    !aliceWords.includes(word)
+                )
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 25)
+                .map(([word, count]) => ({ word, type: 'frequent', count }));
+            
+            return [...aliceWordsFound, ...frequentWords].sort((a, b) => a.word.localeCompare(b.word));
+        }
+
+        function processText() {
+            if (!combinedText) {
+                showMessage('Nenhum texto carregado!', 'error');
+                return;
+            }
+            
+            showLoading(true);
+            
+            setTimeout(() => {
+                try {
+                    // Preprocessa o texto
+                    const cleanText = preprocessText(combinedText);
+                    processedTokens = tokenize(cleanText);
+                    
+                    if (processedTokens.length < 100) {
+                        showMessage('Texto muito curto! Precisa de mais conteúdo.', 'error');
+                        showLoading(false);
+                        return;
+                    }
+                    
+                    const n = parseInt(document.getElementById('nValue').value);
+                    
+                    // Cria n-gramas para todos os tamanhos de 2 até n
+                    ngramsDict = {};
+                    for (let i = 2; i <= n; i++) {
+                        ngramsDict[i] = createNgrams(processedTokens, i);
+                    }
+                    
+                    // Encontra palavras interessantes
+                    interestingWords = findInterestingWords(processedTokens);
+                    
+                    // Exibe as palavras para seleção
+                    displayWordSelection();
+                    
+                    showMessage(`✅ Texto processado com sucesso! ${processedTokens.length.toLocaleString()} palavras analisadas.`, 'success');
+                    showLoading(false);
+                    
+                } catch (error) {
+                    showMessage('Erro ao processar texto: ' + error.message, 'error');
+                    showLoading(false);
+                }
+            }, 500);
+        }
+
+        function displayWordSelection() {
+            const wordSelection = document.getElementById('wordSelection');
+            const wordGrid = document.getElementById('wordGrid');
+            const generateBtn = document.getElementById('generateBtn');
+            
+            wordGrid.innerHTML = '';
+            
+            interestingWords.slice(0, 40).forEach(item => {
+                const button = document.createElement('div');
+                button.className = `word-button ${item.type === 'alice' ? 'alice-words' : 'frequent-words'}`;
+                button.innerHTML = `${item.word}<br><small>(${item.count}x)</small>`;
+                button.onclick = () => selectWord(item.word, button);
+                wordGrid.appendChild(button);
+            });
+            
+            wordSelection.style.display = 'block';
+            generateBtn.style.display = 'inline-block';
+        }
+
+        function selectWord(word, element) {
+            // Remove seleção anterior
+            document.querySelectorAll('.word-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Adiciona seleção à palavra clicada
+            element.classList.add('selected');
+            selectedWord = word;
+        }
+
+        function generateText() {
+            const customWord = document.getElementById('customWord').value.trim().toLowerCase();
+            const startWord = customWord || selectedWord;
+            
+            if (!startWord) {
+                showMessage('Por favor, selecione uma palavra ou digite uma palavra personalizada!', 'error');
+                return;
+            }
+            
+            const n = parseInt(document.getElementById('nValue').value);
+            const textSize = parseInt(document.getElementById('textSize').value);
+            
+            showLoading(true);
+            
+            setTimeout(() => {
+                try {
+                    const generatedTokens = generateMarkovText(startWord, n, textSize);
+                    displayResult(generatedTokens, startWord, n);
+                    showLoading(false);
+                } catch (error) {
+                    showMessage('Erro ao gerar texto: ' + error.message, 'error');
+                    showLoading(false);
+                }
+            }, 300);
+        }
+
+        function generateMarkovText(startWord, n, maxSize) {
+            const result = [startWord];
+            
+            for (let currentN = 2; currentN <= n && result.length < maxSize; currentN++) {
+                const currentNgrams = ngramsDict[currentN];
+                const contextSize = currentN - 1;
+                
+                while (result.length < maxSize) {
+                    if (result.length < contextSize) break;
+                    
+                    const context = result.slice(-contextSize).join(' ');
+                    
+                    if (currentNgrams[context] && currentNgrams[context].length > 0) {
+                        const nextWord = currentNgrams[context][Math.floor(Math.random() * currentNgrams[context].length)];
+                        result.push(nextWord);
+                    } else if (contextSize > 1) {
+                        // Tenta contexto menor
+                        const smallerContext = result.slice(-contextSize + 1).join(' ');
+                        if (currentNgrams[smallerContext] && currentNgrams[smallerContext].length > 0) {
+                            const nextWord = currentNgrams[smallerContext][Math.floor(Math.random() * currentNgrams[smallerContext].length)];
+                            result.push(nextWord);
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            
+            return result.slice(0, maxSize);
+        }
+
+        function displayResult(tokens, startWord, n) {
+            const resultSection = document.getElementById('resultSection');
+            const generatedText = document.getElementById('generatedText');
+            const stats = document.getElementById('stats');
+            const regenerateBtn = document.getElementById('regenerateBtn');
+            
+            // Formata o texto em parágrafos
+            const text = tokens.join(' ');
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            
+            let formattedText = '';
+            for (let i = 0; i < sentences.length; i++) {
+                const sentence = sentences[i].trim();
+                if (sentence) {
+                    // Capitaliza primeira letra de cada sentença
+                    const capitalizedSentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+                    formattedText += capitalizedSentence;
+                    
+                    // Adiciona pontuação se não houver
+                    if (!/[.!?]$/.test(capitalizedSentence)) {
+                        formattedText += '.';
+                    }
+                    
+                    // Quebra de parágrafo a cada 2-3 sentenças
+                    if ((i + 1) % 3 === 0) {
+                        formattedText += '<br><br>';
+                    } else {
+                        formattedText += ' ';
+                    }
+                }
+            }
+            
+            generatedText.innerHTML = formattedText || text;
+            
+            stats.innerHTML = `
+                🎭 <strong>Estatísticas da Geração:</strong><br>
+                • <strong>${tokens.length}</strong> palavras geradas usando <strong>${n}-gramas</strong><br>
+                • Palavra inicial: "<strong>${startWord}</strong>"<br>
+                • Combinações únicas disponíveis: <strong>${Object.keys(ngramsDict[n] || {}).length.toLocaleString()}</strong><br>
+                • Vocabulário total: <strong>${new Set(processedTokens).size.toLocaleString()}</strong> palavras únicas<br>
+                • Texto fonte: <strong>${processedTokens.length.toLocaleString()}</strong> palavras dos livros da Alice
+            `;
+            
+            resultSection.style.display = 'block';
+            regenerateBtn.style.display = 'inline-block';
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            if (show) {
+                loading.classList.add('show');
+            } else {
+                loading.classList.remove('show');
+            }
+        }
+
+        function showMessage(message, type) {
+            // Remove mensagens anteriores
+            const existingMessages = document.querySelectorAll('.error, .success');
+            existingMessages.forEach(msg => msg.remove());
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(messageDiv, container.children[3]);
+            
+            // Remove a mensagem após 6 segundos
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 6000);
+        }
     </script>
 </body>
 </html>

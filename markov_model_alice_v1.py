@@ -1,278 +1,292 @@
-import streamlit as st
 import re
 import random
 from collections import defaultdict
-import os
 
-# Configuração da página
-st.set_page_config(
-    page_title="Gerador de Texto Markoviano",
-    page_icon="🎭",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Variáveis globais para armazenar o modelo
+markov_model = defaultdict(list)
+total_words = 0
 
-# CSS customizado para deixar mais bonito
-st.markdown("""
-<style>
-    .main-header {
-        text-align: center;
-        padding: 2rem 0;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 3rem;
-        font-weight: bold;
-        margin-bottom: 1rem;
-    }
+def load_and_process_text(file_path):
+    """
+    Carrega um arquivo de texto e constrói o modelo Markov.
     
-    .subtitle {
-        text-align: center;
-        color: #666;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-    }
+    Uma cadeia de Markov é um modelo estatístico que prediz o próximo elemento
+    de uma sequência baseado apenas nos elementos anteriores imediatos.
+    Neste caso, usamos 2 palavras para predizer a terceira (trigramas).
     
-    .stAlert > div {
-        padding: 1rem;
-        border-radius: 10px;
-    }
-    
-    .example-words {
-        background: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-    }
-    
-    .generated-text {
-        background: #f8f9fa !important;
-        color: #2c3e50 !important;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 4px solid #667eea;
-        font-family: Georgia, serif;
-        line-height: 1.8;
-        margin: 1rem 0;
-        font-size: 1.1rem;
-    }
-    
-    /* Garantir que o texto seja sempre visível */
-    .generated-text * {
-        color: #2c3e50 !important;
-    }
-    
-    /* Melhorar contraste em modo escuro */
-    [data-theme="dark"] .generated-text {
-        background: #1e1e1e !important;
-        color: #e0e0e0 !important;
-        border-left-color: #667eea;
-    }
-    
-    [data-theme="dark"] .generated-text * {
-        color: #e0e0e0 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Função para carregar e processar o texto
-@st.cache_data
-def load_and_process_text(file_path="data/acile.txt"):
-    """Carrega o arquivo de texto e constrói o modelo Markov"""
-
+    Args:
+        file_path (str): Caminho para o arquivo de texto
+        
+    Returns:
+        bool: True se o carregamento foi bem-sucedido, False caso contrário
+    """
+    global markov_model, total_words
     
     try:
+        # Lê o arquivo com encoding UTF-8 para suportar caracteres especiais
         with open(file_path, encoding="utf-8") as f:
-            text = f.read().lower()
+            text = f.read().lower()  # Converte para minúsculas para padronizar
         
-        # Quebrar em palavras
+        # Extrai apenas palavras (remove pontuação e números)
+        # \b\w+\b: \b = limite de palavra, \w+ = uma ou mais letras/dígitos
         words = re.findall(r"\b\w+\b", text)
+        total_words = len(words)
         
-        # Construir modelo de trigramas
+        # Limpa o modelo anterior
         markov_model = defaultdict(list)
+        
+        # Constrói o modelo de trigramas
+        # Para cada sequência de 3 palavras consecutivas (w1, w2, w3),
+        # armazena que após o par (w1, w2) pode vir w3
+        
+        # zip(words, words[1:], words[2:]) cria grupos de 3 palavras consecutivas
+        # Exemplo: ["alice", "estava", "muito", "curiosa"] 
+        # → [("alice", "estava", "muito"), ("estava", "muito", "curiosa")]
         for w1, w2, w3 in zip(words, words[1:], words[2:]):
             markov_model[(w1, w2)].append(w3)
         
-        return markov_model, len(words)
-    
+        print(f"Modelo carregado com sucesso!")
+        print(f"  - Total de palavras: {total_words:,}")
+        print(f"  - Trigramas únicos: {len(markov_model):,}")
+        
+        return True
+        
+    except FileNotFoundError:
+        print(f"Erro: Arquivo '{file_path}' não encontrado.")
+        return False
     except Exception as e:
-        st.error(f"Erro ao carregar arquivo: {e}")
-        return None, 0
+        print(f"Erro ao carregar arquivo: {e}")
+        return False
 
-# Função para gerar texto (adaptada do seu código original)
-def generate_text(model, start_words, length=46):
-    """Gera texto usando o modelo Markov"""
+def get_available_words():
+    """
+    Retorna uma lista das palavras que podem ser usadas como início.
+    
+    Returns:
+        list: Lista ordenada de palavras disponíveis
+    """
+    # Pega a primeira palavra de cada par (w1, w2) no modelo
+    available_words = list(set([pair[0] for pair in markov_model.keys()]))
+    return sorted(available_words)
+
+def generate_text(start_word, length=50):
+    """
+    Gera texto usando o modelo Markov.
+    
+    O algoritmo funciona assim:
+    1. Encontra todos os pares que começam com a palavra escolhida
+    2. Escolhe aleatoriamente um par compatível
+    3. Para cada nova palavra:
+       - Usa o par atual (w1, w2) para encontrar possíveis próximas palavras
+       - Escolhe aleatoriamente uma das opções
+       - Atualiza o par para (w2, nova_palavra)
+    4. Repete até atingir o comprimento desejado
+    
+    Args:
+        start_word (str): Palavra inicial para começar a geração
+        length (int): Número de palavras a gerar (padrão: 50)
+        
+    Returns:
+        tuple: (texto_gerado, mensagem_erro)
+               Se bem-sucedido: (string, None)
+               Se erro: (None, string_com_erro)
+    """
     try:
-        # Se o usuário passar apenas uma palavra, escolher uma segunda compatível
-        if isinstance(start_words, str):
-            candidates = [pair for pair in model.keys() if pair[0] == start_words]
-            if not candidates:
-                return None, f"❌ Não encontrei pares começando com '{start_words}' no texto."
-            w1, w2 = random.choice(candidates)
-        else:
-            w1, w2 = start_words
-
+        start_word = start_word.lower().strip()
+        
+        # Encontra todos os pares que começam com a palavra escolhida
+        # Exemplo: se start_word = "alice", encontra todos os pares ("alice", X)
+        candidates = [pair for pair in markov_model.keys() if pair[0] == start_word]
+        
+        if not candidates:
+            return None, f"Não encontrei pares começando com '{start_word}' no texto."
+        
+        # Escolhe aleatoriamente um dos pares compatíveis
+        w1, w2 = random.choice(candidates)
+        
+        # Inicializa o texto de saída com as duas primeiras palavras
         output = [w1, w2]
+        
+        # Gera o resto do texto palavra por palavra
         for _ in range(length - 2):
-            if (w1, w2) not in model:
+            # Verifica se o par atual existe no modelo
+            if (w1, w2) not in markov_model:
+                # Se não existe, para a geração (chegou a um "beco sem saída")
                 break
-            w3 = random.choice(model[(w1, w2)])
+            
+            # Escolhe aleatoriamente a próxima palavra baseada no modelo
+            # Todas as palavras que já apareceram após (w1, w2) têm chance igual
+            w3 = random.choice(markov_model[(w1, w2)])
             output.append(w3)
+            
+            # Atualiza o par para a próxima iteração
+            # O novo par é (w2, w3) para encontrar a palavra que vem depois
             w1, w2 = w2, w3
         
         return " ".join(output), None
-    
+        
     except Exception as e:
-        return None, f"❌ Erro ao gerar texto: {e}"
+        return None, f"Erro ao gerar texto: {e}"
 
-# Interface principal
-def main():
-    # Cabeçalho
-    st.markdown('<h1 class="main-header"> Gerador de Texto Markoviano</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">Demonstração de Cadeia de Markov para Geração de Texto Artificial<br>Baseado em "Alice no País das Maravilhas"</p>', unsafe_allow_html=True)
+def get_word_suggestions(partial_word, max_suggestions=10):
+    """
+    Encontra sugestões de palavras baseadas em uma string parcial.
     
-    # Carregar o modelo
-    with st.spinner("🔄 Carregando modelo Markov..."):
-        markov_model, total_words = load_and_process_text()
-    
-    if markov_model is None:
-        st.error("❌ Não foi possível carregar o modelo.")
+    Args:
+        partial_word (str): Parte da palavra para buscar
+        max_suggestions (int): Número máximo de sugestões
+        
+    Returns:
+        list: Lista de palavras que contêm a string parcial
+    """
+    available_words = get_available_words()
+    # Filtra palavras que contêm a string parcial
+    suggestions = [word for word in available_words if partial_word.lower() in word]
+    return suggestions[:max_suggestions]
+
+def show_model_info():
+    """
+    Exibe informações estatísticas sobre o modelo carregado.
+    """
+    if not markov_model:
+        print("Nenhum modelo carregado.")
         return
     
-    # Informações sobre o modelo na sidebar
-    st.sidebar.markdown("## 📊 Informações do Modelo")
-    st.sidebar.info(f"""
-    **Total de palavras:** {total_words:,}
+    available_words = get_available_words()
     
-    **Trigramas únicos:** {len(markov_model):,}
+    print("\nInformações do Modelo Markov:")
+    print("=" * 40)
+    print(f"Total de palavras no texto: {total_words:,}")
+    print(f"Trigramas únicos: {len(markov_model):,}")
+    print(f"Palavras iniciais disponíveis: {len(available_words):,}")
+    print(f"Ordem do modelo: 2 (usa 2 palavras para predizer a 3ª)")
+
+def show_examples():
+    """
+    Mostra alguns exemplos de palavras que podem ser usadas.
+    """
+    available_words = get_available_words()
+    if not available_words:
+        print("Nenhuma palavra disponível.")
+        return
     
-    **Ordem do modelo:** 2 (trigrama)
+    # Seleciona algumas palavras interessantes como exemplo
+    example_words = []
     
-    **Arquivo base:** acile.txt
-    """)
+    # Tenta encontrar algumas palavras específicas interessantes
+    interesting_words = ['alice', 'coelho', 'rainha', 'gato', 'chapeleiro', 
+                        'casa', 'tempo', 'mundo', 'vida', 'água']
     
-    # Palavras disponíveis no modelo
-    available_words = list(set([pair[0] for pair in markov_model.keys()]))
-    popular_words = sorted(available_words)[:20]  # Primeiras 20 em ordem alfabética
+    for word in interesting_words:
+        if word in available_words:
+            example_words.append(word)
+        if len(example_words) >= 5:
+            break
     
-    st.sidebar.markdown("## 💡 Palavras Disponíveis")
-    st.sidebar.info(f"O modelo contém **{len(available_words)}** palavras iniciais diferentes.")
+    # Se não encontrou palavras específicas, usa as primeiras disponíveis
+    if len(example_words) < 5:
+        example_words.extend(available_words[:5])
+        example_words = list(dict.fromkeys(example_words))  # Remove duplicatas
     
-    # Inicializar session_state
-    if 'selected_word' not in st.session_state:
-        st.session_state.selected_word = ""
+    print(f"\nExemplos de palavras disponíveis: {', '.join(example_words[:5])}")
+
+def main():
+    """
+    Função principal que demonstra o uso do gerador de texto Markoviano.
     
-    # Exemplos de palavras - ANTES do input para funcionar
-    st.markdown("### 🔤 Experimente estas palavras:")
-    example_words = ['alice', 'coelho', 'rainha', 'gato', 'chapeleiro']
+    Cadeia de Markov:
+    - É um processo estocástico onde a próxima palavra depende apenas das palavras anteriores
+    - Ordem 2 significa que usamos 2 palavras para predizer a próxima
+    - Trigramas: sequências de 3 palavras consecutivas (w1, w2, w3)
+    - Modelo: dicionário que mapeia pares (w1, w2) → lista de possíveis w3
+    """
+    print("Gerador de Texto Markoviano")
+    print("=" * 50)
+    print("Demonstração de Cadeia de Markov para Geração de Texto")
+    print("Baseado em 'Alice no País das Maravilhas'")
+    print("\nComo funciona:")
+    print("1. Analisa o texto e cria trigramas (grupos de 3 palavras)")
+    print("2. Para cada par de palavras, guarda quais podem vir depois")
+    print("3. Gera texto escolhendo aleatoriamente baseado nos padrões")
     
-    cols = st.columns(len(example_words))
-    for i, word in enumerate(example_words):
-        if cols[i].button(f"**{word}**", key=f"btn_{word}"):
-            st.session_state.selected_word = word
-            st.rerun()
+    # Carrega o arquivo de texto
+    file_path = "data/maravilha.txt"  # Arquivo base: Alice no País das Maravilhas
+    print(f"\nCarregando arquivo: {file_path}")
     
-    # Área principal de entrada
-    col1, col2 = st.columns([3, 1])
+    if not load_and_process_text(file_path):
+        print("Não foi possível carregar o modelo. Verifique o arquivo.")
+        return
     
-    with col1:
-        start_word = st.text_input(
-            "🎯 Palavra inicial:",
-            value=st.session_state.selected_word,
-            placeholder="Digite uma palavra (ex: alice, coelho, rainha...)",
-            help="Digite uma palavra que aparece no texto de Alice",
-            key="word_input"
-        )
+    # Mostra informações do modelo
+    show_model_info()
+    
+    # Mostra exemplos de palavras
+    show_examples()
+    
+    # Loop principal de interação com o usuário
+    print("\n" + "=" * 50)
+    print("Digite uma palavra para começar a geração")
+    print("Comandos especiais: 'info' (estatísticas), 'sair' (terminar)")
+    
+    while True:
+        # Solicita entrada do usuário
+        start_word = input("\nPalavra inicial: ").strip()
         
-        # Sincronizar com session_state
-        if start_word != st.session_state.selected_word:
-            st.session_state.selected_word = start_word
-    
-    with col2:
-        length = st.number_input(
-            "📏 Comprimento:",
-            min_value=10,
-            max_value=200,
-            value=46,
-            help="Número de palavras a gerar"
-        )
-    
-    # Botão de geração
-    if st.button("🎲 Gerar Texto", type="primary", use_container_width=True):
-        if not start_word:
-            st.warning("⚠️ Por favor, digite uma palavra inicial!")
+        # Verifica comandos especiais
+        if start_word.lower() in ['sair', 'exit', 'quit', '']:
+            print("Até logo!")
+            break
+        elif start_word.lower() == 'info':
+            show_model_info()
+            show_examples()
+            continue
+        
+        # Solicita o comprimento do texto (opcional)
+        try:
+            length_input = input("Comprimento (padrão: 50): ").strip()
+            length = int(length_input) if length_input else 50
+            length = max(10, min(200, length))  # Limita entre 10 e 200 palavras
+        except ValueError:
+            length = 50
+            print("Valor inválido, usando 50 palavras.")
+        
+        print(f"\nGerando texto de {length} palavras...")
+        
+        # Gera o texto usando o modelo Markov
+        generated_text, error = generate_text(start_word, length)
+        
+        if error:
+            print(error)
+            
+            # Oferece sugestões se a palavra não foi encontrada
+            suggestions = get_word_suggestions(start_word)
+            if suggestions:
+                print(f"Palavras similares disponíveis: {', '.join(suggestions)}")
+            else:
+                print("Digite 'info' para ver exemplos de palavras disponíveis.")
         else:
-            with st.spinner("🔄 Gerando texto..."):
-                generated_text, error = generate_text(markov_model, start_word.lower().strip(), length)
-                
-                if error:
-                    st.error(error)
-                    
-                    # Sugerir palavras similares
-                    similar_words = [word for word in available_words if start_word.lower() in word][:10]
-                    if similar_words:
-                        st.info(f"💡 Palavras similares disponíveis: {', '.join(similar_words)}")
+            print("\nTexto Gerado:")
+            print("-" * 60)
+            # Formata o texto em linhas de aproximadamente 80 caracteres
+            words = generated_text.split()
+            line = ""
+            for word in words:
+                if len(line + word) > 80:
+                    print(line.strip())
+                    line = word + " "
                 else:
-                    st.markdown("### 📝 Texto Gerado:")
-                    # Usar st.text_area para garantir legibilidade
-                    st.text_area(
-                        label="",
-                        value=generated_text,
-                        height=200,
-                        disabled=True,
-                        label_visibility="collapsed"
-                    )
-                    
-                    # Opções adicionais
-                    # col1, col2, col3 = st.columns(3)
-                    # col1, col2 = st.columns(2)
-
-                    # with st.columns(1):
-                    if st.button("🔄 Gerar Novamente"):
-                            st.rerun()
-                    
-                    # with col2:
-                        # st.download_button(
-                        #     "💾 Baixar Texto",
-                        #     data=generated_text,
-                        #     file_name=f"texto_markov_{start_word}.txt",
-                        #     mime="text/plain"
-                        # )
-                    
-                    # with col3: 
-                        # if st.button("📋 Copiar"):
-                            # st.info("Use Ctrl+C para copiar o texto acima!")
-
-    # Explicação do algoritmo na parte inferior
-    with st.expander("Como funciona o Algoritmo Markov"):
-        st.markdown("""
-        ### 🔍 **Cadeia de Markov de Ordem 2 (Trigramas)**
-        
-        1. **Processamento do texto:**
-           - O texto é dividido em palavras
-           - Cada sequência de 3 palavras consecutivas forma um "trigrama"
-           - Exemplo: "Alice estava muito" → ("Alice", "estava") → "muito"
-        
-        2. **Construção do modelo:**
-           - Para cada par de palavras, guardamos quais palavras podem vir a seguir
-           - Exemplo: após ("Alice", "estava") podem vir ["muito", "pensando", "curiosa"...]
-        
-        3. **Geração do texto:**
-           - Começamos com a palavra escolhida
-           - Encontramos um par compatível 
-           - Escolhemos aleatoriamente a próxima palavra baseada no modelo
-           - Repetimos o processo até atingir o comprimento desejado
-        
-        ### **Vantagens:**
-        - Preserva padrões linguísticos do texto original
-        - Gera texto que "soa" como o autor original
-        - Simples de implementar e entender
-        
-        ### **Limitações:**
-        - Não entende significado, apenas padrões
-        - Pode gerar frases sem sentido
-        - Limitado ao vocabulário do texto original
-        """)
+                    line += word + " "
+            if line.strip():  # Imprime a última linha se houver
+                print(line.strip())
+            print("-" * 60)
+            
+            # Estatísticas do texto gerado
+            print(f"Palavras geradas: {len(words)}")
+            
+            # Opção de gerar novamente com a mesma palavra
+            again = input("\nGerar outro texto com a mesma palavra? (s/n): ")
+            if again.lower().startswith('s'):
+                continue
 
 if __name__ == "__main__":
     main()
