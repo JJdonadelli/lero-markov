@@ -1,174 +1,144 @@
-## Gera o modello para a versão html
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Pré-processador ULTRA-RÁPIDO para Alice
+Gera apenas dados essenciais para velocidade máxima
+"""
+
 import json
 import re
-from collections import defaultdict, Counter
 import os
+from collections import defaultdict, Counter
 
 def preprocessar_texto(texto):
-    """Preprocessa o texto removendo caracteres especiais e convertendo para minúsculas."""
+    """Preprocessa mantendo acentos."""
     if not texto:
         return ""
     
-    # Remove quebras de linha excessivas e caracteres especiais
     texto = re.sub(r'\n+', ' ', texto)
-    texto = re.sub(r'[^\w\s\.\!\?\,\;\:]', '', texto)
-    
-    # Converte para minúsculas
+    texto = re.sub(r'[^\wáàâãéèêíìîóòôõúùûçÁÀÂÃÉÈÊÍÌÎÓÒÔÕÚÙÛÇ\s\.\!\?\,\;\:\-\"]', '', texto)
     texto = texto.lower()
-    
-    # Remove espaços múltiplos
     texto = re.sub(r'\s+', ' ', texto)
     
     return texto.strip()
 
 def tokenizar(texto):
-    """Tokeniza o texto em palavras."""
-    tokens = [token for token in texto.split() if token]
-    return tokens
+    return [token for token in texto.split() if token]
 
-def criar_ngramas(tokens, n):
-    """Cria um dicionário de n-gramas a partir dos tokens."""
+def criar_ngramas_otimizados(tokens, n, limite=1000):
+    """Cria apenas os n-gramas mais frequentes para velocidade."""
     ngramas = defaultdict(list)
     
     for i in range(len(tokens) - n + 1):
-        # Chave: n-1 palavras anteriores
-        chave = ' '.join(tokens[i:i+n-1])  # Usar string em vez de tuple para JSON
-        # Valor: próxima palavra
+        chave = ' '.join(tokens[i:i+n-1])
         proxima_palavra = tokens[i+n-1]
         ngramas[chave].append(proxima_palavra)
     
-    return dict(ngramas)
+    # Filtra apenas os mais frequentes
+    ngramas_filtrados = {}
+    for chave, palavras in ngramas.items():
+        if len(palavras) >= 2:  # Só inclui se aparece pelo menos 2 vezes
+            ngramas_filtrados[chave] = palavras
+    
+    # Pega só os mais usados
+    items_ordenados = sorted(ngramas_filtrados.items(), key=lambda x: len(x[1]), reverse=True)
+    return dict(items_ordenados[:limite])
 
-def encontrar_palavras_interessantes(tokens):
-    """Encontra palavras interessantes e relevantes para começar o texto."""
+def encontrar_palavras_top(tokens):
+    """Encontra apenas as palavras mais relevantes."""
     palavras_alice = [
-        'alice', 'coelho', 'chapeleiro', 'gato', 'rainha', 'rei', 'carta', 'cartas',
-        'chá', 'mesa', 'jardim', 'buraco', 'toca', 'relógio', 'tempo', 'mundo',
-        'país', 'maravilhas', 'espelho', 'sonho', 'dormindo', 'acordar',
-        'pequena', 'grande', 'crescer', 'diminuir', 'poção', 'beber', 'comer',
-        'porta', 'chave', 'curiosa', 'estranha', 'estranho', 'medo', 'coragem'
+        'alice', 'coelho', 'chapeleiro', 'gato', 'rainha', 'rei',
+        'chá', 'mesa', 'jardim', 'espelho', 'sonho', 'tempo',
+        'país', 'maravilhas', 'pequena', 'grande', 'porta', 'chave',
+        'através', 'então', 'coração', 'não', 'também', 'estava',
+        'havia', 'disse', 'viu', 'pensou'
     ]
     
     contador = Counter(tokens)
     
-    palavras_disponiveis = []
-    for palavra in palavras_alice:
-        if palavra in contador and contador[palavra] > 3:
-            palavras_disponiveis.append(palavra)
+    # Palavras Alice disponíveis
+    alice_disp = [p for p in palavras_alice if contador.get(p, 0) > 2]
     
-    palavras_frequentes = [palavra for palavra, freq in contador.most_common(30) 
-                          if len(palavra) > 3 and palavra.isalpha()]
+    # Top palavras frequentes
+    top_freq = [palavra for palavra, freq in contador.most_common(20) 
+               if len(palavra) > 3 and re.match(r'^[a-záàâãéèêíìîóòôõúùûç]+$', palavra)][:15]
     
-    todas_palavras = list(set(palavras_disponiveis + palavras_frequentes[:15]))
-    
-    return sorted(todas_palavras)
+    return sorted(list(set(alice_disp + top_freq)))
 
 def main():
-    # Lê os arquivos
-    print("Lendo arquivos...")
-    maravilha = ""
-    espelho = ""
+    print("⚡ ULTRA-FAST Preprocessor Alice")
+    print("=" * 40)
     
-    # Ajuste os caminhos conforme necessário
-    if os.path.exists('public_html/estocastico/markov_lero/data/maravilha-limpo.txt'):
-        with open('public_html/estocastico/markov_lero/data/maravilha-limpo.txt', 'r', encoding='utf-8') as f:
-            maravilha = f.read()
-    elif os.path.exists('data/maravilha-limpo.txt'):
-        with open('data/maravilha-limpo.txt', 'r', encoding='utf-8') as f:
-            maravilha = f.read()
-    else:
-        print("Arquivo maravilha-limpo.txt não encontrado!")
+    # Encontra arquivos
+    caminhos = [
+        ('public_html/estocastico/markov_lero/data/', 'maravilha-limpo.txt', 'espelho-limpo.txt'),
+        ('data/', 'maravilha-limpo.txt', 'espelho-limpo.txt'),
+        ('./', 'maravilha-limpo.txt', 'espelho-limpo.txt')
+    ]
+    
+    texto_completo = ""
+    
+    for pasta, arq1, arq2 in caminhos:
+        try:
+            with open(os.path.join(pasta, arq1), 'r', encoding='utf-8') as f:
+                maravilha = f.read()
+            with open(os.path.join(pasta, arq2), 'r', encoding='utf-8') as f:
+                espelho = f.read()
+            
+            texto_completo = maravilha + " " + espelho
+            print(f"✅ Arquivos: {pasta}")
+            break
+        except:
+            continue
+    
+    if not texto_completo:
+        print("❌ Arquivos não encontrados!")
         return
     
-    if os.path.exists('public_html/estocastico/markov_lero/data/espelho-limpo.txt'):
-        with open('public_html/estocastico/markov_lero/data/espelho-limpo.txt', 'r', encoding='utf-8') as f:
-            espelho = f.read()
-    elif os.path.exists('data/espelho-limpo.txt'):
-        with open('data/espelho-limpo.txt', 'r', encoding='utf-8') as f:
-            espelho = f.read()
-    else:
-        print("Arquivo espelho-limpo.txt não encontrado!")
-        return
+    print(f"📖 Texto: {len(texto_completo):,} chars")
     
-    texto_completo = maravilha + " " + espelho
-    print(f"Texto completo carregado: {len(texto_completo)} caracteres")
-    
-    # Preprocessa o texto
-    print("Preprocessando texto...")
+    # Processa
     texto_limpo = preprocessar_texto(texto_completo)
     tokens = tokenizar(texto_limpo)
-    print(f"Tokens gerados: {len(tokens)}")
+    print(f"🔤 Tokens: {len(tokens):,}")
     
-    # Encontra palavras interessantes
-    print("Encontrando palavras interessantes...")
-    palavras_interessantes = encontrar_palavras_interessantes(tokens)
-    print(f"Palavras interessantes: {len(palavras_interessantes)}")
+    palavras_top = encontrar_palavras_top(tokens)
+    print(f"⭐ Palavras: {len(palavras_top)}")
     
-    # Gera n-gramas para diferentes ordens
-    print("Gerando n-gramas...")
-    todos_ngramas = {}
-    
-    for n in range(2, 7):  # 2-gramas até 6-gramas
-        print(f"  Processando {n}-gramas...")
-        ngramas = criar_ngramas(tokens, n)
-        todos_ngramas[str(n)] = ngramas
-        print(f"    {len(ngramas)} {n}-gramas únicos")
-    
-    # Prepara dados para salvar
-    dados_completos = {
-        'tokens': tokens,
-        'palavras_interessantes': palavras_interessantes,
-        'ngramas': todos_ngramas,
-        'estatisticas': {
-            'total_tokens': len(tokens),
-            'tokens_unicos': len(set(tokens)),
-            'palavras_alice': len([p for p in palavras_interessantes 
-                                 if p in ['alice', 'coelho', 'chapeleiro', 'gato', 'rainha']])
-        }
+    # N-gramas LIMITADOS para velocidade
+    print("🚀 N-gramas otimizados...")
+    ngramas = {
+        '2': criar_ngramas_otimizados(tokens, 2, 800),   # Menos dados
+        '3': criar_ngramas_otimizados(tokens, 3, 600),   # para velocidade
+        '4': criar_ngramas_otimizados(tokens, 4, 400),   # máxima
+        '5': criar_ngramas_otimizados(tokens, 5, 200),
+        '6': criar_ngramas_otimizados(tokens, 6, 100)
     }
     
-    # Salva arquivo principal (pode ser grande)
-    print("Salvando arquivo completo...")
-    with open('markov_data_complete.json', 'w', encoding='utf-8') as f:
-        json.dump(dados_completos, f, ensure_ascii=False, separators=(',', ':'))
+    for n, dados in ngramas.items():
+        print(f"  {n}-gramas: {len(dados)}")
     
-    # Salva versão compacta (só metadados e palavras)
-    print("Salvando arquivo compacto...")
-    dados_compactos = {
-        'palavras_interessantes': palavras_interessantes,
-        'estatisticas': dados_completos['estatisticas'],
-        'sample_ngramas': {
-            '2': dict(list(todos_ngramas['2'].items())[:100]),
-            '3': dict(list(todos_ngramas['3'].items())[:100]),
-            '4': dict(list(todos_ngramas['4'].items())[:50])
-        }
+    # Dados MÍNIMOS
+    dados_rapidos = {
+        'palavras': palavras_top,
+        'stats': {
+            'tokens': len(tokens),
+            'unicos': len(set(tokens)),
+            'alice_count': len([p for p in palavras_top if p in ['alice', 'coelho', 'gato']])
+        },
+        'ng': ngramas  # Nome curto para economia
     }
     
-    with open('markov_data_compact.json', 'w', encoding='utf-8') as f:
-        json.dump(dados_compactos, f, ensure_ascii=False, indent=2)
+    # Salva compacto
+    arquivo = 'alice_fast.json'
+    with open(arquivo, 'w', encoding='utf-8') as f:
+        json.dump(dados_rapidos, f, ensure_ascii=False, separators=(',', ':'))
     
-    # Salva n-gramas por ordem separadamente (para carregamento sob demanda)
-    print("Salvando n-gramas separadamente...")
-    os.makedirs('ngrams', exist_ok=True)
+    tamanho_kb = os.path.getsize(arquivo) / 1024
+    print(f"💾 Salvo: {arquivo} ({tamanho_kb:.1f} KB)")
     
-    for n in range(2, 7):
-        filename = f'ngrams/ngrams_{n}.json'
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(todos_ngramas[str(n)], f, ensure_ascii=False, separators=(',', ':'))
-        print(f"  Salvo: {filename}")
-    
-    print("\n✅ Processamento concluído!")
-    print("Arquivos gerados:")
-    print("  - markov_data_complete.json (dados completos)")
-    print("  - markov_data_compact.json (dados compactos)")
-    print("  - ngrams/ngrams_2.json até ngrams_6.json (n-gramas por ordem)")
-    
-    # Mostra estatísticas finais
-    print(f"\nEstatísticas:")
-    print(f"  Total de tokens: {len(tokens):,}")
-    print(f"  Tokens únicos: {len(set(tokens)):,}")
-    print(f"  Palavras interessantes: {len(palavras_interessantes)}")
-    print(f"  Exemplo de palavras: {', '.join(palavras_interessantes[:10])}")
+    print(f"🎯 Top palavras: {', '.join(palavras_top[:8])}")
+    print("🚀 PRONTO! Será MUITO mais rápido agora!")
 
 if __name__ == "__main__":
     main()
