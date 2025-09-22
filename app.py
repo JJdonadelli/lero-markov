@@ -339,7 +339,7 @@ def main():
     principais matemáticos de sua época. 
       
     Curiosamente, o primeiro experimento famoso de Markov com sua própria teoria foi realizado em **1913** 
-    usando o romance épico russo **"Eugênio Onegin"** de Alexander Pushkin! Markov analisou a sequência de 
+    usando o romance épico russo **"Eugene Onegin"** de Alexander Pushkin! Markov analisou a sequência de 
     vogais e consoantes no texto para demonstrar como eventos futuros podiam depender apenas do estado presente, 
     não de toda a história anterior.
     
