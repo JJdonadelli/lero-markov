@@ -356,7 +356,6 @@ def main():
     - **Análise Financeira** (modelagem de preços de ações)
     - **Bioinformática** (análise de sequências de DNA)
     - **Inteligência Artificial** (chatbots e sistemas de recomendação)
-    - **Física e Química** (processos estocásticos) 
     """)
     
     # Créditos
