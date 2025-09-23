@@ -2,9 +2,8 @@ import random
 import sys
 from collections import defaultdict, Counter
 
-# === CARREGAMENTO DOS TEXTOS ===
 # Carrega dois textos de Alice no País das Maravilhas
-# (provavelmente versões diferentes ou livros relacionados)
+# Assume que os textos já estão limpos (sem pontuação, etc.)
 try:
     text1 = open("data/maravilha_limpo.txt", encoding="utf-8").read().lower()
     text2 = open("data/espelho_limpo.txt", encoding="utf-8").read().lower()
@@ -12,10 +11,8 @@ except FileNotFoundError:
     raise FileNotFoundError("Arquivos de texto não encontrados.")
 
 # Combina os dois textos e quebra em palavras
-# Assume que os textos já estão limpos (sem pontuação, etc.)
 words = (text1 + " " + text2).split()
 
-# === FUNÇÃO PARA CONSTRUIR MODELO DE N-GRAMAS ===
 def build_ngram_model(words, n=3):
     """
     Constrói um modelo de n-gramas (Markov de ordem n-1)
@@ -44,7 +41,6 @@ def build_ngram_model(words, n=3):
     
     return model
 
-# === FUNÇÃO PARA GERAR TEXTO ===
 def generate_text(model, start_words, length=50):
     """
     Gera texto usando o modelo de n-gramas com seleção ponderada
@@ -90,7 +86,7 @@ def generate_text(model, start_words, length=50):
     
     return " ".join(output)
 
-# === CONFIGURAÇÃO E EXECUÇÃO ===
+# CONFIGURAÇÃO 
 # Permite definir o tamanho do n-grama via linha de comando
 if len(sys.argv) < 2:
     n = 4  # Padrão: 4-gramas (Markov ordem 3)
