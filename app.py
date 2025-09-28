@@ -187,8 +187,8 @@ def main():
         # Informações
         st.markdown("""
         ### Como funciona?
-        O algoritmo aprende padrões de palavras consecutivas usando as estórias de Alice, de Lewis Carrolpadrões. 
-        Usa probabilidades para escolher a próxima palavra
+        O algoritmo aprende padrões de palavras consecutivas através das estórias de Alice, de Lewis Carrol. 
+        
         ### Dica:
         - N baixo = mais criativo, menos coerente
         - N alto = mais coerente, menos criativo
